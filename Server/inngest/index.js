@@ -141,7 +141,7 @@ const syncWorkspaceDeletion = inngest.createFunction(
 const syncWorkspaceMemberCreation = inngest.createFunction(
     {
         id: "sync-workspace-member-from-clerk",
-        trigger: [{ event: "clerk/organizationInvitation.accepted" }],
+        triggers: [{ event: "clerk/organizationInvitation.accepted" }],
     },
     async ({ event }) => {
         const { data } = event;
