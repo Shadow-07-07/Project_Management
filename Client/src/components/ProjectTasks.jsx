@@ -3,8 +3,10 @@ import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteTask, updateTask } from "../features/workspaceSlice";
-import { Bug, CalendarIcon, GitCommit, MessageSquare, Square, Trash, XIcon, Zap } from "lucide-react";
+import { deleteTask, updateTask } from "../features/workspaceSlice.js";
+import { Bug, CalendarIcon, GitCommit, MessageSquare, Square, Trash, User, XIcon, Zap } from "lucide-react";
+import { useAuth } from "@clerk/react";
+import api from "../configs/api.js";
 
 const typeIcons = {
     BUG: { icon: Bug, color: "text-red-600 dark:text-red-400" },
@@ -21,6 +23,7 @@ const priorityTexts = {
 };
 
 const ProjectTasks = ({ tasks }) => {
+    const {getToken} = useAuth()
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const [selectedTasks, setSelectedTasks] = useState([]);
@@ -57,10 +60,9 @@ const ProjectTasks = ({ tasks }) => {
     const handleStatusChange = async (taskId, newStatus) => {
         try {
             toast.loading("Updating status...");
+            const token = await getToken()
 
-            //  Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-
+            await api.put(`/api/tasks/${taskId}`, {status: newStatus}, {headers: {Authorization: `Bearer ${token}`}})
             let updatedTask = structuredClone(tasks.find((t) => t.id === taskId));
             updatedTask.status = newStatus;
             dispatch(updateTask(updatedTask));
@@ -79,11 +81,11 @@ const ProjectTasks = ({ tasks }) => {
             if (!confirm) return;
 
             toast.loading("Deleting tasks...");
-
-            //  Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            const token = await getToken()
+            await api.post('/api/tasks/delete', {taskIds: selectedTasks}, {headers: {Authorization: `Bearer ${token}`}})
 
             dispatch(deleteTask(selectedTasks));
+            setSelectedTasks([]);
 
             toast.dismissAll();
             toast.success("Tasks deleted successfully");

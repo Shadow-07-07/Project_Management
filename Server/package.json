@@ -6,7 +6,8 @@
   "scripts": {
     "postinstall": "npx prisma generate",
     "start": "prisma generate && node server.js",
-    "server": "nodemon server.js"
+    "server": "nodemon server.js",
+    "inngest": "npx inngest-cli@latest dev"
   },
   "keywords": [],
   "author": "",
