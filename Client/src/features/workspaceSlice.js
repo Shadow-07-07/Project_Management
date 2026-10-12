@@ -1,9 +1,19 @@
-import { createSlice } from "@reduxjs/toolkit";
-import { dummyWorkspaces } from "../assets/assets";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit"; 
+import api from '../configs/api.js';
+
+export const fetchWorkspaces = createAsyncThunk('workspace/fetchWorkspaces', async ({getToken, activeOrgId}) => {
+    try {
+        const {data} = await api.get('/api/workspaces', {headers: {Authorization: `Bearer ${await getToken()}`}})
+        return { workspaces: data.workspaces || [], activeOrgId }
+    } catch (error) {
+        console.log(error?.response?.data?.message || error.message)
+        return { workspaces: [], activeOrgId: null }
+    }
+})
 
 const initialState = {
-    workspaces: dummyWorkspaces || [],
-    currentWorkspace: dummyWorkspaces[1],
+    workspaces: [],
+    currentWorkspace: null,
     loading: false,
 };
 
@@ -103,6 +113,43 @@ const workspaceSlice = createSlice({
             );
         }
 
+    },
+    extraReducers: (builder) => {
+        builder.addCase(fetchWorkspaces.pending, (state) => {
+            state.loading = true
+        });
+        builder.addCase(fetchWorkspaces.fulfilled, (state, action) => {
+            const { workspaces, activeOrgId } = action.payload;
+            state.workspaces = workspaces;
+            if(workspaces.length > 0) {
+                // If Clerk has an active organization, prioritize it
+                const activeMatch = activeOrgId ? workspaces.find(w => w.id === activeOrgId) : null;
+                if (activeMatch) {
+                    state.currentWorkspace = activeMatch;
+                    localStorage.setItem("currentWorkspaceId", activeMatch.id);
+                } else {
+                    const localStorageCurrentworkspaceId = localStorage.getItem("currentWorkspaceId");
+                    if(localStorageCurrentworkspaceId) {
+                        const findWorkspace = workspaces.find((w) => w.id === localStorageCurrentworkspaceId);
+                        if(findWorkspace) {
+                            state.currentWorkspace = findWorkspace;
+                        }
+                        else{
+                            state.currentWorkspace = workspaces[0];
+                            localStorage.setItem("currentWorkspaceId", workspaces[0].id);
+                        }
+                    }
+                    else{
+                        state.currentWorkspace = workspaces[0];
+                        localStorage.setItem("currentWorkspaceId", workspaces[0].id);
+                    }
+                }
+            }
+            state.loading = false;
+        });
+        builder.addCase(fetchWorkspaces.rejected, (state) => {
+            state.loading = false;
+        });
     }
 });
 
