@@ -1,8 +1,10 @@
 import { FolderOpen, CheckCircle, Users, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { useUser } from "@clerk/react";
 
 export default function StatsGrid() {
+    const { user } = useUser();
     const currentWorkspace = useSelector(
         (state) => state?.workspace?.currentWorkspace || null
     );
@@ -20,7 +22,7 @@ export default function StatsGrid() {
             icon: FolderOpen,
             title: "Total Projects",
             value: stats.totalProjects,
-            subtitle: `projects in ${currentWorkspace?.name}`,
+            subtitle: `projects in ${currentWorkspace?.name || "workspace"}`,
             bgColor: "bg-blue-500/10",
             textColor: "text-blue-500",
         },
@@ -51,31 +53,54 @@ export default function StatsGrid() {
     ];
 
     useEffect(() => {
-        if (currentWorkspace) {
+        if (currentWorkspace && currentWorkspace.projects) {
+            const projects = currentWorkspace.projects;
+            const userEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress;
+            const userId = user?.id;
+
+            const isUserTask = (t) => {
+                if (userId && (t.assigneeId === userId || t.assignee?.id === userId)) return true;
+                if (userEmail && t.assignee?.email === userEmail) return true;
+                return false;
+            };
+
+            const totalProjects = projects.length;
+            const completedProjects = projects.filter(
+                (p) => p.status === "COMPLETED" || (p.progress ?? 0) === 100
+            ).length;
+            const activeProjects = projects.filter(
+                (p) => p.status !== "CANCELLED" && p.status !== "COMPLETED" && (p.progress ?? 0) < 100
+            ).length;
+
+            const myTasks = projects.reduce(
+                (acc, project) =>
+                    acc + (project.tasks ? project.tasks.filter((t) => isUserTask(t)).length : 0),
+                0
+            );
+
+            const overdueIssues = projects.reduce(
+                (acc, project) =>
+                    acc +
+                    (project.tasks
+                        ? project.tasks.filter(
+                              (t) =>
+                                  t.due_date &&
+                                  new Date(t.due_date) < new Date() &&
+                                  t.status !== "DONE"
+                          ).length
+                        : 0),
+                0
+            );
+
             setStats({
-                totalProjects: currentWorkspace.projects.length,
-                activeProjects: currentWorkspace.projects.filter(
-                    (p) => p.status !== "CANCELLED" && p.status !== "COMPLETED"
-                ).length,
-                completedProjects: currentWorkspace.projects
-                    .filter((p) => p.status === "COMPLETED")
-                    .reduce((acc, project) => acc + project.tasks.length, 0),
-                myTasks: currentWorkspace.projects.reduce(
-                    (acc, project) =>
-                        acc +
-                        project.tasks.filter(
-                            (t) => t.assignee?.email === currentWorkspace.owner.email
-                        ).length,
-                    0
-                ),
-                overdueIssues: currentWorkspace.projects.reduce(
-                    (acc, project) =>
-                        acc + project.tasks.filter((t) => t.due_date < new Date()).length,
-                    0
-                ),
+                totalProjects,
+                activeProjects,
+                completedProjects,
+                myTasks,
+                overdueIssues,
             });
         }
-    }, [currentWorkspace]);
+    }, [currentWorkspace, user]);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 my-9">

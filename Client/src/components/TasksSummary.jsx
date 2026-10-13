@@ -11,12 +11,21 @@ export default function TasksSummary() {
 
     // Get all tasks for all projects in current workspace
     useEffect(() => {
-        if (currentWorkspace) {
-            setTasks(currentWorkspace.projects.flatMap((project) => project.tasks));
+        if (currentWorkspace && currentWorkspace.projects) {
+            setTasks(currentWorkspace.projects.flatMap((project) => project.tasks || []));
         }
     }, [currentWorkspace]);
 
-    const myTasks = tasks.filter(i => i.assigneeId === user.id);
+    const userEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress;
+    const userId = user?.id;
+
+    const isUserTask = (t) => {
+        if (userId && (t.assigneeId === userId || t.assignee?.id === userId)) return true;
+        if (userEmail && t.assignee?.email === userEmail) return true;
+        return false;
+    };
+
+    const myTasks = tasks.filter(isUserTask);
     const overdueTasks = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'DONE');
     const inProgressIssues = tasks.filter(i => i.status === 'IN_PROGRESS');
 

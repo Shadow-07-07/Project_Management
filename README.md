@@ -130,43 +130,6 @@ Project_Management/
 ```
 
 ---
-
-## ⚙️ Environment Variables
-
-### 1. Backend (`Server/.env`)
-Create a `.env` file in the `Server/` directory:
-
-```env
-NODE_ENV="development"
-PORT=5000
-
-# Clerk Authentication Keys
-CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
-CLERK_WEBHOOK_SECRET=whsec_...
-
-# Neon PostgreSQL Database
-DATABASE_URL="postgresql://user:password@ep-pooler.region.neon.tech/neondb?sslmode=require"
-DIRECT_URL="postgresql://user:password@ep-direct.region.neon.tech/neondb?sslmode=require"
-
-# Inngest Serverless Workflows
-INNGEST_EVENT_KEY=your_inngest_event_key
-INNGEST_SIGNING_KEY=your_inngest_signing_key
-
-# Email Configuration (Brevo / SMTP)
-SENDER_EMAIL=your-verified-email@example.com
-SMTP_USER=your_smtp_username
-SMTP_PASS=your_smtp_password
-```
-
-### 2. Frontend (`Client/.env`)
-Create a `.env` file in the `Client/` directory:
-
-```env
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-VITE_BASEURL=http://localhost:5000
-```
-
 ---
 
 ## 🚀 Getting Started Locally

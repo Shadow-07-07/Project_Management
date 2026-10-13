@@ -14,7 +14,7 @@ const TaskDetails = () => {
     const projectId = searchParams.get("projectId");
     const taskId = searchParams.get("taskId");
 
-    const user = useUser()
+    const { user } = useUser();
     const {getToken} = useAuth()
     const [task, setTask] = useState(null);
     const [project, setProject] = useState(null);

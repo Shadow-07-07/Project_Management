@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { format, setISODay } from "date-fns";
-import { useAuth } from "@clerk/react";
+import { format } from "date-fns";
+import { useAuth, useUser } from "@clerk/react";
 import api from "../configs/api.js";
 import toast from "react-hot-toast";
 import { addTask } from "../features/workspaceSlice.js";
@@ -10,10 +10,35 @@ import { addTask } from "../features/workspaceSlice.js";
 export default function CreateTaskDialog({ showCreateTask, setShowCreateTask, projectId }) {
 
     const { getToken } = useAuth();
+    const { user } = useUser();
     const dispatch = useDispatch();
     const currentWorkspace = useSelector((state) => state.workspace?.currentWorkspace || null);
     const project = currentWorkspace?.projects.find((p) => p.id === projectId);
-    const teamMembers = project?.members || [];
+
+    const availableAssignees = useMemo(() => {
+        const map = new Map();
+        if (project?.owner) {
+            map.set(project.owner.id, project.owner);
+        }
+        if (project?.members) {
+            project.members.forEach((m) => {
+                if (m.user) map.set(m.user.id, m.user);
+            });
+        }
+        if (currentWorkspace?.members) {
+            currentWorkspace.members.forEach((m) => {
+                if (m.user) map.set(m.user.id, m.user);
+            });
+        }
+        if (user && !map.has(user.id)) {
+            map.set(user.id, {
+                id: user.id,
+                name: user.fullName || "User",
+                email: user.primaryEmailAddress?.emailAddress || user.emailAddresses?.[0]?.emailAddress || "user"
+            });
+        }
+        return Array.from(map.values());
+    }, [project, currentWorkspace, user]);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
@@ -30,7 +55,15 @@ export default function CreateTaskDialog({ showCreateTask, setShowCreateTask, pr
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            const { data } = await api.post('/api/tasks', { ...formData, workspaceId: currentWorkspace.id, projectId }, { headers: { Authorization: `Bearer ${await getToken()}` } })
+            const finalAssigneeId = formData.assigneeId || user?.id || availableAssignees[0]?.id;
+            const payload = {
+                ...formData,
+                assigneeId: finalAssigneeId,
+                workspaceId: currentWorkspace?.id,
+                projectId
+            };
+
+            const { data } = await api.post('/api/tasks', payload, { headers: { Authorization: `Bearer ${await getToken()}` } });
             setShowCreateTask(false)
             setFormData({
                 title: "",
@@ -99,10 +132,10 @@ export default function CreateTaskDialog({ showCreateTask, setShowCreateTask, pr
                         <div className="space-y-1">
                             <label className="text-sm font-medium">Assignee</label>
                             <select value={formData.assigneeId} onChange={(e) => setFormData({ ...formData, assigneeId: e.target.value })} className="w-full rounded dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-zinc-900 dark:text-zinc-200 text-sm mt-1" >
-                                <option value="">Unassigned</option>
-                                {teamMembers.map((member) => (
-                                    <option key={member?.user.id} value={member?.user.id}>
-                                        {member?.user.email}
+                                <option value="">Assign to Me ({user?.fullName || "Myself"})</option>
+                                {availableAssignees.map((assignee) => (
+                                    <option key={assignee.id} value={assignee.id}>
+                                        {assignee.name ? `${assignee.name} (${assignee.email})` : assignee.email}
                                     </option>
                                 ))}
                             </select>

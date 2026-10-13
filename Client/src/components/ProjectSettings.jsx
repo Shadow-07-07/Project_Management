@@ -6,7 +6,7 @@ import { useDispatch } from "react-redux";
 import { useAuth } from "@clerk/react";
 import toast from "react-hot-toast";
 import api from "../configs/api";
-import { fetchWorkspaces } from "../features/workspaceSlice.js";
+import { fetchWorkspaces, updateProject } from "../features/workspaceSlice.js";
 
 export default function ProjectSettings({ project }) {
 
@@ -34,6 +34,9 @@ export default function ProjectSettings({ project }) {
             const {data} = await api.put('/api/projects', formData, {headers: {Authorization: `Bearer ${await getToken()}`}})
 
             setIsDialogOpen(false);
+            if (data.project) {
+                dispatch(updateProject(data.project));
+            }
             dispatch(fetchWorkspaces({getToken}))
             toast.dismissAll();
             toast.success(data.message)
@@ -78,7 +81,18 @@ export default function ProjectSettings({ project }) {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className={labelClasses}>Status</label>
-                            <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className={inputClasses} >
+                            <select 
+                                value={formData.status} 
+                                onChange={(e) => {
+                                    const newStatus = e.target.value;
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        status: newStatus,
+                                        progress: newStatus === "COMPLETED" ? 100 : (prev.progress === 100 ? 50 : prev.progress)
+                                    }));
+                                }} 
+                                className={inputClasses} 
+                            >
                                 <option value="PLANNING">Planning</option>
                                 <option value="ACTIVE">Active</option>
                                 <option value="ON_HOLD">On Hold</option>
@@ -101,18 +115,43 @@ export default function ProjectSettings({ project }) {
                     <div className="space-y-4 grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className={labelClasses}>Start Date</label>
-                            <input type="date" value={format(formData.start_date, "yyyy-MM-dd")} onChange={(e) => setFormData({ ...formData, start_date: new Date(e.target.value) })} className={inputClasses} />
+                            <input 
+                                type="date" 
+                                value={formData.start_date ? format(new Date(formData.start_date), "yyyy-MM-dd") : ""} 
+                                onChange={(e) => setFormData({ ...formData, start_date: e.target.value ? new Date(e.target.value) : null })} 
+                                className={inputClasses} 
+                            />
                         </div>
                         <div className="space-y-2">
                             <label className={labelClasses}>End Date</label>
-                            <input type="date" value={format(formData.end_date, "yyyy-MM-dd")} onChange={(e) => setFormData({ ...formData, end_date: new Date(e.target.value) })} className={inputClasses} />
+                            <input 
+                                type="date" 
+                                value={formData.end_date ? format(new Date(formData.end_date), "yyyy-MM-dd") : ""} 
+                                onChange={(e) => setFormData({ ...formData, end_date: e.target.value ? new Date(e.target.value) : null })} 
+                                className={inputClasses} 
+                            />
                         </div>
                     </div>
 
                     {/* Progress */}
                     <div className="space-y-2">
                         <label className={labelClasses}>Progress: {formData.progress}%</label>
-                        <input type="range" min="0" max="100" step="5" value={formData.progress} onChange={(e) => setFormData({ ...formData, progress: Number(e.target.value) })} className="w-full accent-blue-500 dark:accent-blue-400" />
+                        <input 
+                            type="range" 
+                            min="0" 
+                            max="100" 
+                            step="5" 
+                            value={formData.progress || 0} 
+                            onChange={(e) => {
+                                const newProgress = Number(e.target.value);
+                                setFormData((prev) => ({
+                                    ...prev,
+                                    progress: newProgress,
+                                    status: newProgress === 100 ? "COMPLETED" : (prev.status === "COMPLETED" ? "ACTIVE" : prev.status)
+                                }));
+                            }} 
+                            className="w-full accent-blue-500 dark:accent-blue-400" 
+                        />
                     </div>
 
                     {/* Save Button */}

@@ -10,25 +10,50 @@ export const createTask = async (req, res) => {
     const { projectId, title, description, type, status, priority, assigneeId, due_date } = req.body;
     const origin = req.get('origin');
 
-    // check if user has admin role for project
+    // check if user has access to project
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      include: { members: { include: { user: true } } }
+      include: {
+        members: { include: { user: true } },
+        workspace: { include: { members: { include: { user: true } } } },
+        owner: true
+      }
     })
     if (!project) {
       return res
         .status(404)
         .json({ message: "Project not found" })
     }
-    else if (project.team_lead !== userId) {
+
+    const isTeamLead = project.team_lead === userId;
+    const isWorkspaceAdmin = project.workspace?.members?.some((m) => m.userId === userId && m.role === "ADMIN");
+    const isProjectMember = project.members.some((m) => m.userId === userId);
+
+    if (!isTeamLead && !isWorkspaceAdmin && !isProjectMember) {
       return res
         .status(403)
-        .json({ message: "You don't have admin privileges for this project" })
+        .json({ message: "You don't have permission to create tasks for this project" })
     }
-    else if (assigneeId && !project.members.find((member) => member.userId === assigneeId)) {
+
+    // Default assignee to userId if none provided or empty
+    const finalAssigneeId = assigneeId && assigneeId.trim() !== "" ? assigneeId : userId;
+
+    const isAssigneeInWorkspace =
+      finalAssigneeId === project.team_lead ||
+      project.members.some((member) => member.userId === finalAssigneeId) ||
+      project.workspace?.members?.some((member) => member.userId === finalAssigneeId);
+
+    if (!isAssigneeInWorkspace) {
       return res
         .status(403)
-        .json({ message: "Assignee is not a member of the project / workspace" })
+        .json({ message: "Assignee is not a member of the project or workspace" })
+    }
+
+    // Link assignee to project members if not already linked
+    if (finalAssigneeId !== project.team_lead && !project.members.some((m) => m.userId === finalAssigneeId)) {
+      await prisma.projectMember.create({
+        data: { projectId, userId: finalAssigneeId }
+      }).catch(() => {});
     }
 
     const task = await prisma.task.create({
@@ -36,17 +61,17 @@ export const createTask = async (req, res) => {
         projectId,
         title,
         description,
-        priority,
-        assigneeId,
-        status,
-        type,
-        due_date: new Date(due_date)
+        priority: priority || "MEDIUM",
+        assigneeId: finalAssigneeId,
+        status: status || "TODO",
+        type: type || "TASK",
+        due_date: due_date ? new Date(due_date) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
       }
     })
 
     const taskWithAssignee = await prisma.task.findUnique({
       where: { id: task.id },
-      include: { assignee: true }
+      include: { assignee: true, comments: { include: { user: true } } }
     })
 
     try {
@@ -118,15 +143,23 @@ export const updateTask = async (req, res) => {
         .status(404)
         .json({ message: "Project not found" })
     }
-    else if (project.team_lead !== userId) {
+    const isTeamLead = project.team_lead === userId;
+    const isAssignee = task.assigneeId === userId;
+    const isProjectMember = project.members.some((m) => m.userId === userId);
+
+    if (!isTeamLead && !isAssignee && !isProjectMember) {
       return res
         .status(403)
-        .json({ message: "You don't have admin privileges for this project" })
+        .json({ message: "You don't have permission to update tasks for this project" });
     }
 
     const updatedTask = await prisma.task.update({
       where: { id: req.params.id },
-      data: req.body
+      data: req.body,
+      include: {
+        assignee: true,
+        comments: { include: { user: true } }
+      }
     })
 
     res.json({ task: updatedTask, message: "Task updated successfully" })

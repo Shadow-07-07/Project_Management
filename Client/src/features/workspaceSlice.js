@@ -50,27 +50,65 @@ const workspaceSlice = createSlice({
             state.workspaces = state.workspaces.filter((w) => w._id !== action.payload);
         },
         addProject: (state, action) => {
-            state.currentWorkspace.projects.push(action.payload);
-            // find workspace by id and add project to it
+            if (state.currentWorkspace) {
+                if (!state.currentWorkspace.projects) {
+                    state.currentWorkspace.projects = [];
+                }
+                const exists = state.currentWorkspace.projects.some((p) => p.id === action.payload.id);
+                if (!exists) {
+                    state.currentWorkspace.projects.push(action.payload);
+                }
+            }
+            state.workspaces = state.workspaces.map((w) => {
+                if (w.id === state.currentWorkspace?.id) {
+                    const currentProjects = w.projects || [];
+                    const exists = currentProjects.some((p) => p.id === action.payload.id);
+                    return {
+                        ...w,
+                        projects: exists ? currentProjects : [...currentProjects, action.payload]
+                    };
+                }
+                return w;
+            });
+        },
+        updateProject: (state, action) => {
+            const updated = action.payload;
+            if (state.currentWorkspace && state.currentWorkspace.projects) {
+                state.currentWorkspace.projects = state.currentWorkspace.projects.map((p) =>
+                    p.id === updated.id ? { ...p, ...updated } : p
+                );
+            }
             state.workspaces = state.workspaces.map((w) =>
-                w.id === state.currentWorkspace.id ? { ...w, projects: w.projects.concat(action.payload) } : w
+                w.id === state.currentWorkspace?.id ? {
+                    ...w,
+                    projects: (w.projects || []).map((p) =>
+                        p.id === updated.id ? { ...p, ...updated } : p
+                    )
+                } : w
             );
         },
         addTask: (state, action) => {
+            const task = action.payload;
+            if (state.currentWorkspace && state.currentWorkspace.projects) {
+                state.currentWorkspace.projects = state.currentWorkspace.projects.map((p) => {
+                    if (p.id === task.projectId) {
+                        return {
+                            ...p,
+                            tasks: (p.tasks || []).concat(task)
+                        };
+                    }
+                    return p;
+                });
+            }
 
-            state.currentWorkspace.projects = state.currentWorkspace.projects.map((p) => {
-                console.log(p.id, action.payload.projectId, p.id === action.payload.projectId);
-                if (p.id === action.payload.projectId) {
-                    p.tasks.push(action.payload);
-                }
-                return p;
-            });
-
-            // find workspace and project by id and add task to it
             state.workspaces = state.workspaces.map((w) =>
-                w.id === state.currentWorkspace.id ? {
-                    ...w, projects: w.projects.map((p) =>
-                        p.id === action.payload.projectId ? { ...p, tasks: p.tasks.concat(action.payload) } : p
+                w.id === state.currentWorkspace?.id ? {
+                    ...w,
+                    projects: (w.projects || []).map((p) =>
+                        p.id === task.projectId ? {
+                            ...p,
+                            tasks: (p.tasks || []).concat(task)
+                        } : p
                     )
                 } : w
             );
@@ -156,5 +194,5 @@ const workspaceSlice = createSlice({
     }
 });
 
-export const { setWorkspaces, setCurrentWorkspace, addWorkspace, updateWorkspace, deleteWorkspace, addProject, addTask, updateTask, deleteTask } = workspaceSlice.actions;
+export const { setWorkspaces, setCurrentWorkspace, addWorkspace, updateWorkspace, deleteWorkspace, addProject, updateProject, addTask, updateTask, deleteTask } = workspaceSlice.actions;
 export default workspaceSlice.reducer;
