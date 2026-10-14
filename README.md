@@ -1,4 +1,4 @@
-# 🚀 ProManage - Modern Full-Stack Project Management Platform
+# 🚀 TaskSphere - Modern Full-Stack Project Management Platform
 
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-7-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
